@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBR — Onboard nuova promozione</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f6fa;margin:0;padding:40px 20px;color:#1a1a1a}
+  .card{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;padding:36px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+  h1{margin:0 0 8px;font-size:24px;color:#c73a63}
+  .sub{color:#666;margin:0 0 28px;font-size:14px;line-height:1.5}
+  .field{margin-bottom:18px}
+  label{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
+  label .req{color:#c73a63}
+  label .hint{color:#888;font-weight:400;font-size:12px;margin-left:6px}
+  input[type=text],select,textarea{width:100%;padding:10px 12px;border:1px solid #d0d3da;border-radius:6px;font-size:14px;font-family:inherit}
+  textarea{min-height:60px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#c73a63;box-shadow:0 0 0 3px rgba(199,58,99,.12)}
+  .row{display:flex;gap:12px}
+  .row .field{flex:1}
+  button{background:#c73a63;color:#fff;border:0;padding:12px 28px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px}
+  button:hover{background:#a8304f}
+  button:disabled{background:#aaa;cursor:not-allowed}
+  .result{margin-top:24px;padding:14px 16px;border-radius:6px;display:none;font-size:14px}
+  .result.ok{background:#e6f7ed;color:#0a6c2e;border:1px solid #b6e3c4;display:block}
+  .result.err{background:#fdecec;color:#a8201f;border:1px solid #f5c2c2;display:block}
+  code{background:#f0f2f5;padding:2px 6px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎟️ Onboard nuova promozione</h1>
+  <p class="sub">Aggiunge/aggiorna un coupon nel Data Store Make <code>rbr_coupons</code>. Se la <code>brand_key</code>+<code>code</code> esiste già, viene sovrascritta (idempotente).</p>
+
+  <form id="form">
+    <div class="row">
+      <div class="field" style="flex:1">
+        <label>brand_key <span class="req">*</span> <span class="hint">es. mp, dirigi, red_mike</span></label>
+        <input type="text" name="brand_key" required placeholder="mp">
+      </div>
+      <div class="field" style="flex:2">
+        <label>code <span class="req">*</span> <span class="hint">codice coupon univoco per brand</span></label>
+        <input type="text" name="code" required placeholder="BENVENUTO20PERC">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>desc_it <span class="req">*</span> <span class="hint">descrizione mail italiano</span></label>
+      <textarea name="desc_it" required placeholder="20% in regalo da Mister Pizza"></textarea>
+    </div>
+
+    <div class="field">
+      <label>desc_en <span class="hint">descrizione mail inglese (vuoto = usa desc_it)</span></label>
+      <textarea name="desc_en" placeholder="20% as a gift from Mister Pizza"></textarea>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>ipratico_promo_code <span class="hint">codice cassa iPratico equivalente</span></label>
+        <input type="text" name="ipratico_promo_code" placeholder="WELCOME20">
+      </div>
+      <div class="field">
+        <label>ipratico_discount_value <span class="hint">es. 20% o €10</span></label>
+        <input type="text" name="ipratico_discount_value" placeholder="20%">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>active <span class="hint">true/false</span></label>
+      <select name="active">
+        <option value="true" selected>true</option>
+        <option value="false">false</option>
+      </select>
+    </div>
+
+    <button type="submit" id="btn">💾 Salva promozione</button>
+  </form>
+  <div id="result" class="result"></div>
+</div>
+
+<script>
+const WEBHOOK_URL = "https://hook.eu1.make.com/ccoosmjr8fm6hp3voxsddjrvdgzle88w";
+const form = document.getElementById('form');
+const btn = document.getElementById('btn');
+const result = document.getElementById('result');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  btn.disabled = true;
+  btn.textContent = '⏳ Invio...';
+  result.className = 'result';
+  result.textContent = '';
+
+  const data = Object.fromEntries(new FormData(form).entries());
+
+  try {
+    const r = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    if (r.ok) {
+      result.className = 'result ok';
+      result.innerHTML = `✅ Promozione <strong>${data.brand_key}:${data.code}</strong> salvata!<br>Apri Make → Data Stores → <code>rbr_coupons</code> → vedi record.`;
+      form.reset();
+    } else {
+      result.className = 'result err';
+      result.textContent = `❌ Errore HTTP ${r.status}.`;
+    }
+  } catch(err) {
+    result.className = 'result err';
+    result.textContent = `❌ Errore di rete: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Salva promozione';
+  }
+});
+</script>
+</body>
+</html>

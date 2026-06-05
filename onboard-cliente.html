@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RBR — Onboard nuovo cliente</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f6fa;margin:0;padding:40px 20px;color:#1a1a1a}
+  .card{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;padding:36px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+  h1{margin:0 0 8px;font-size:24px;color:#c73a63}
+  .sub{color:#666;margin:0 0 28px;font-size:14px;line-height:1.5}
+  .field{margin-bottom:18px}
+  label{display:block;font-weight:600;font-size:13px;margin-bottom:6px}
+  label .req{color:#c73a63}
+  label .hint{color:#888;font-weight:400;font-size:12px;margin-left:6px}
+  input[type=text],input[type=url],select{width:100%;padding:10px 12px;border:1px solid #d0d3da;border-radius:6px;font-size:14px;font-family:inherit}
+  input:focus,select:focus{outline:none;border-color:#c73a63;box-shadow:0 0 0 3px rgba(199,58,99,.12)}
+  .row{display:flex;gap:12px}
+  .row .field{flex:1}
+  button{background:#c73a63;color:#fff;border:0;padding:12px 28px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px}
+  button:hover{background:#a8304f}
+  button:disabled{background:#aaa;cursor:not-allowed}
+  .result{margin-top:24px;padding:14px 16px;border-radius:6px;display:none;font-size:14px}
+  .result.ok{background:#e6f7ed;color:#0a6c2e;border:1px solid #b6e3c4;display:block}
+  .result.err{background:#fdecec;color:#a8201f;border:1px solid #f5c2c2;display:block}
+  code{background:#f0f2f5;padding:2px 6px;border-radius:3px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🆕 Onboard nuovo cliente RBR</h1>
+  <p class="sub">Aggiunge un nuovo store nel Data Store Make <code>rbr_clients</code>. Compila i campi e premi Salva. Il sistema fa tutto il resto.</p>
+
+  <form id="form">
+    <div class="field">
+      <label>client_key <span class="req">*</span> <span class="hint">slug univoco store, es. red_mike o mp_mestre</span></label>
+      <input type="text" name="client_key" required placeholder="red_mike">
+    </div>
+
+    <div class="field">
+      <label>brand_key <span class="req">*</span> <span class="hint">chiave brand (più store stesso brand condividono coupon)</span></label>
+      <input type="text" name="brand_key" required placeholder="red_mike">
+    </div>
+
+    <div class="field">
+      <label>brand_name <span class="req">*</span> <span class="hint">nome leggibile</span></label>
+      <input type="text" name="brand_name" required placeholder="Red Mike Roma">
+    </div>
+
+    <div class="field">
+      <label>location_id_ghl <span class="req">*</span> <span class="hint">24 char ID sub-account GHL</span></label>
+      <input type="text" name="location_id_ghl" required placeholder="5zq4ChlSsM1Fc57EIsLj">
+    </div>
+
+    <div class="field">
+      <label>resmio_store_id <span class="hint">facility_id Resmio (vuoto se no Resmio)</span></label>
+      <input type="text" name="resmio_store_id" placeholder="red-mike-roma">
+    </div>
+
+    <div class="field">
+      <label>webhook_smistamento_url <span class="req">*</span> <span class="hint">URL inbound webhook GHL workflow "Smistamento Lead"</span></label>
+      <input type="url" name="webhook_smistamento_url" required placeholder="https://services.leadconnectorhq.com/hooks/.../webhook-trigger/...">
+    </div>
+
+    <div class="field">
+      <label>webhook_qr_url <span class="hint">URL workflow QR Email (vuoto se no QR)</span></label>
+      <input type="url" name="webhook_qr_url" placeholder="https://services.leadconnectorhq.com/hooks/.../webhook-trigger/...">
+    </div>
+
+    <div class="field">
+      <label>ipratico_api_key <span class="hint">x-api-key iPratico (vuoto se no iPratico)</span></label>
+      <input type="text" name="ipratico_api_key" placeholder="12458:b8d8...">
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>lang_default <span class="hint">it/en</span></label>
+        <select name="lang_default">
+          <option value="it" selected>it</option>
+          <option value="en">en</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="submit" id="btn">💾 Salva cliente</button>
+  </form>
+  <div id="result" class="result"></div>
+</div>
+
+<script>
+const WEBHOOK_URL = "https://hook.eu1.make.com/2ibcw2eug488u7bs3d9hj47ota77tctr";
+const form = document.getElementById('form');
+const btn = document.getElementById('btn');
+const result = document.getElementById('result');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  btn.disabled = true;
+  btn.textContent = '⏳ Invio...';
+  result.className = 'result';
+  result.textContent = '';
+
+  const data = Object.fromEntries(new FormData(form).entries());
+
+  try {
+    const r = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(data)
+    });
+    if (r.ok) {
+      result.className = 'result ok';
+      result.innerHTML = `✅ Cliente <strong>${data.brand_name}</strong> salvato!<br>Apri Make → Data Stores → <code>rbr_clients</code> → vedi record con key <code>${data.resmio_store_id || data.client_key}</code>.`;
+      form.reset();
+    } else {
+      result.className = 'result err';
+      result.textContent = `❌ Errore HTTP ${r.status}. Make non ha accettato. Controlla i campi.`;
+    }
+  } catch(err) {
+    result.className = 'result err';
+    result.textContent = `❌ Errore di rete: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '💾 Salva cliente';
+  }
+});
+</script>
+</body>
+</html>
